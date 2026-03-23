@@ -21,13 +21,13 @@ const Login = () => {
   const { setAuthenticatedUser } = useAuth();
 
   const [navOpen, setNavOpen] = useState(false);
-  const [form, setForm] = useState({ email: "", password: "" });
+  const [form, setForm] = useState({ username: "", password: "" });
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.email.trim() || !form.password.trim()) {
-      toast({ title: "이메일과 비밀번호를 입력해주세요.", variant: "destructive" });
+    if (!form.username.trim() || !form.password.trim()) {
+      toast({ title: "아이디와 비밀번호를 입력해주세요.", variant: "destructive" });
       return;
     }
 
@@ -36,7 +36,10 @@ const Login = () => {
 
       const response = await apiFetch<AuthResponse>("/api/auth/login", {
         method: "POST",
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          username: form.username.trim().toLowerCase(),
+          password: form.password,
+        }),
       });
 
       setAuthenticatedUser(response.user);
@@ -70,22 +73,23 @@ const Login = () => {
         <div className="w-full max-w-[480px]">
 
           <form onSubmit={handleSubmit}>
-            {/* Email */}
+            {/* 아이디 */}
             <div className="mb-5">
               <div className="flex items-center justify-between mb-1.5">
-                <span className="header-link text-foreground/60 tracking-[0.06em]">Email</span>
+                <span className="header-link text-foreground/60 tracking-[0.06em]">아이디</span>
                 <Link
                   to="#"
                   className="header-link text-foreground/40 hover:text-foreground transition-colors duration-200"
                 >
-                  이메일 찾기
+                  아이디 찾기
                 </Link>
               </div>
               <input
-                type="email"
-                value={form.email}
-                onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
-                autoComplete="email"
+                type="text"
+                value={form.username}
+                onChange={(e) => setForm((p) => ({ ...p, username: e.target.value }))}
+                autoComplete="username"
+                maxLength={16}
                 className="w-full border-b border-border bg-transparent py-2.5 nav-link text-foreground focus:outline-none focus:border-foreground transition-colors duration-200"
               />
             </div>

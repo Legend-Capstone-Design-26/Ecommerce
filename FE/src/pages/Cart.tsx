@@ -7,12 +7,29 @@ import { useCart } from "@/context/CartContext";
 const formatPrice = (price: number) => price.toLocaleString("ko-KR");
 
 const Cart = () => {
-  const { items, subtotal, totalCount, removeItem, updateQuantity, isLoading } =
-    useCart();
+  const {
+    items,
+    totalCount,
+    removeItem,
+    updateQuantity,
+    isLoading,
+    selectedIds,
+    selectedSubtotal,
+    toggleSelected,
+    selectAll,
+    clearSelected,
+  } = useCart();
   const navigate = useNavigate();
 
-  const shipping = subtotal >= 30000 ? 0 : subtotal === 0 ? 0 : 3000;
-  const total = subtotal + shipping;
+  const shipping =
+    selectedSubtotal >= 30000
+      ? 0
+      : selectedSubtotal === 0
+        ? 0
+        : 3000;
+  const total = selectedSubtotal + shipping;
+
+  const allSelected = items.length > 0 && selectedIds.length === items.length;
 
   return (
     <div className="min-h-screen bg-background">
@@ -45,7 +62,19 @@ const Cart = () => {
             {/* Cart Items */}
             <div className="border-t border-border">
               {items.map((item) => (
-                <div key={item.id} className="flex gap-5 py-6 border-b border-border">
+                <div
+                  key={item.id}
+                  className="flex gap-5 py-6 border-b border-border items-start"
+                >
+                  <label className="pt-2">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.includes(item.id)}
+                      onChange={() => toggleSelected(item.id)}
+                      className="h-4 w-4 accent-foreground"
+                      aria-label="선택"
+                    />
+                  </label>
                   {/* Image */}
                   <Link to={`/product/${item.productId}`} className="shrink-0">
                     <img
@@ -121,20 +150,54 @@ const Cart = () => {
                 >
                   Order Summary
                 </h3>
+
+                <label className="flex items-center justify-between nav-link text-foreground/70">
+                  <span className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      onChange={() => {
+                        if (allSelected) {
+                          clearSelected();
+                        } else {
+                          selectAll();
+                        }
+                      }}
+                      className="h-4 w-4 accent-foreground"
+                      aria-label="전체 선택"
+                    />
+                    전체 선택
+                  </span>
+                  <span className="tabular-nums">
+                    선택 {selectedIds.length}개
+                  </span>
+                </label>
+
+                {selectedIds.length === 0 && (
+                  <p className="nav-link text-foreground/40 text-sm">
+                    선택한 상품이 없습니다.
+                  </p>
+                )}
                 <div className="space-y-3">
                   <div className="flex justify-between nav-link text-foreground/60">
                     <span>상품금액</span>
-                    <span className="tabular-nums">₩{formatPrice(subtotal)}</span>
+                    <span className="tabular-nums">
+                      ₩{formatPrice(selectedSubtotal)}
+                    </span>
                   </div>
                   <div className="flex justify-between nav-link text-foreground/60">
                     <span>배송비</span>
                     <span className="tabular-nums">
-                      {shipping === 0 ? (subtotal === 0 ? "₩0" : "무료") : `₩${formatPrice(shipping)}`}
+                      {shipping === 0
+                        ? selectedSubtotal === 0
+                          ? "₩0"
+                          : "무료"
+                        : `₩${formatPrice(shipping)}`}
                     </span>
                   </div>
-                  {subtotal > 0 && subtotal < 30000 && (
+                  {selectedSubtotal > 0 && selectedSubtotal < 30000 && (
                     <p className="header-link text-foreground/40">
-                      ₩{formatPrice(30000 - subtotal)} 추가 시 무료 배송
+                      ₩{formatPrice(30000 - selectedSubtotal)} 추가 시 무료 배송
                     </p>
                   )}
                 </div>
@@ -144,7 +207,8 @@ const Cart = () => {
                 </div>
                 <button
                   onClick={() => navigate("/checkout")}
-                  className="w-full mt-4 py-4 bg-foreground text-background header-link tracking-[0.12em] uppercase hover:opacity-80 transition-opacity duration-200 active:scale-[0.99] transform"
+                  disabled={selectedIds.length === 0}
+                  className="w-full mt-4 py-4 bg-foreground text-background header-link tracking-[0.12em] uppercase hover:opacity-80 transition-opacity duration-200 active:scale-[0.99] transform disabled:opacity-50 disabled:pointer-events-none"
                 >
                   주문하기
                 </button>

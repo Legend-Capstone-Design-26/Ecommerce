@@ -83,8 +83,17 @@ const Join = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!pw || !pwConfirm || !name || !address || !mobileMid || !mobileLast || !email) {
+    if (!id.trim() || !pw || !pwConfirm || !name || !address || !mobileMid || !mobileLast || !email) {
       toast({ title: "필수 항목을 모두 입력해주세요.", variant: "destructive" });
+      return;
+    }
+    const normalizedId = id.trim().toLowerCase();
+    if (!/^[a-z0-9]{4,16}$/.test(normalizedId)) {
+      toast({
+        title: "아이디 형식을 확인해주세요.",
+        description: "영문 소문자와 숫자만, 4~16자입니다.",
+        variant: "destructive",
+      });
       return;
     }
     if (pw !== pwConfirm) {
@@ -104,6 +113,7 @@ const Join = () => {
       const response = await apiFetch<AuthResponse>("/api/auth/signup", {
         method: "POST",
         body: JSON.stringify({
+          username: normalizedId,
           email,
           password: pw,
           name,

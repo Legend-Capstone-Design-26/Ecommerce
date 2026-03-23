@@ -42,6 +42,7 @@ const Mypage = () => {
             <div className="border border-border divide-y divide-border">
               <InfoRow label="회원번호" value={String(user.id)} />
               <InfoRow label="이름" value={user.name} />
+              <InfoRow label="아이디" value={user.username} />
               <InfoRow label="이메일" value={user.email} />
               <InfoRow label="휴대전화" value={user.phone || "-"} />
               <InfoRow

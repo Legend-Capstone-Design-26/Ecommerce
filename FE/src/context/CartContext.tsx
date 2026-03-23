@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -35,6 +36,10 @@ interface CartContextValue {
   items: CartItem[];
   totalCount: number;
   subtotal: number;
+  selectedIds: string[];
+  selectedItems: CartItem[];
+  selectedCount: number;
+  selectedSubtotal: number;
   isLoading: boolean;
   addItem: (item: {
     productId: number;
@@ -45,6 +50,10 @@ interface CartContextValue {
   removeItem: (id: string) => Promise<void>;
   updateQuantity: (id: string, quantity: number) => Promise<void>;
   clearCart: () => void;
+  toggleSelected: (id: string) => void;
+  selectAll: () => void;
+  clearSelected: () => void;
+  removeItems: (ids: string[]) => Promise<void>;
 }
 
 const CartContext = createContext<CartContextValue | null>(null);
@@ -52,22 +61,34 @@ const CartContext = createContext<CartContextValue | null>(null);
 export const CartProvider = ({ children }: { children: ReactNode }) => {
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
   const [items, setItems] = useState<CartItem[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const didInitSelectionRef = useRef(false);
   const [isLoading, setIsLoading] = useState(true);
 
   const refreshCart = useCallback(async () => {
     if (!isAuthenticated) {
       setItems([]);
+      setSelectedIds([]);
+      didInitSelectionRef.current = false;
       setIsLoading(false);
       return;
     }
 
     const response = await apiFetch<CartResponse>("/api/cart");
-    setItems(
-      response.items.map((item) => ({
-        ...item,
-        image: resolveProductImage(item.image),
-      }))
-    );
+    const nextItems = response.items.map((item) => ({
+      ...item,
+      image: resolveProductImage(item.image),
+    }));
+    setItems(nextItems);
+
+    const nextIds = nextItems.map((i) => i.id);
+    setSelectedIds((prev) => {
+      if (!didInitSelectionRef.current) {
+        didInitSelectionRef.current = true;
+        return nextIds;
+      }
+      return prev.filter((id) => nextIds.includes(id));
+    });
     setIsLoading(false);
   }, [isAuthenticated]);
 
@@ -88,6 +109,16 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     0
   );
 
+  const selectedItems = items.filter((item) => selectedIds.includes(item.id));
+  const selectedCount = selectedItems.reduce(
+    (sum, item) => sum + item.quantity,
+    0
+  );
+  const selectedSubtotal = selectedItems.reduce(
+    (sum, item) => sum + item.memberPrice * item.quantity,
+    0
+  );
+
   const addItem = useCallback(
     async (item: {
       productId: number;
@@ -99,57 +130,103 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         method: "POST",
         body: JSON.stringify(item),
       });
-      setItems(
-        response.items.map((cartItem) => ({
-          ...cartItem,
-          image: resolveProductImage(cartItem.image),
-        }))
-      );
+      void response; // selection/normalization is handled by refreshCart()
+      await refreshCart();
     },
-    []
+    [refreshCart]
   );
 
   const removeItem = useCallback(async (id: string) => {
-    const response = await apiFetch<CartResponse>(`/api/cart/${id}`, {
+    await apiFetch<CartResponse>(`/api/cart/${id}`, {
       method: "DELETE",
     });
-    setItems(
-      response.items.map((item) => ({
-        ...item,
-        image: resolveProductImage(item.image),
-      }))
-    );
-  }, []);
+    await refreshCart();
+  }, [refreshCart]);
 
-  const updateQuantity = useCallback(async (id: string, quantity: number) => {
-    const response = await apiFetch<CartResponse>(`/api/cart/${id}`, {
+  const updateQuantity = useCallback(
+    async (id: string, quantity: number) => {
+      await apiFetch<CartResponse>(`/api/cart/${id}`, {
       method: "PATCH",
       body: JSON.stringify({ quantity }),
     });
-    setItems(
-      response.items.map((item) => ({
-        ...item,
-        image: resolveProductImage(item.image),
-      }))
-    );
-  }, []);
+      await refreshCart();
+    },
+    [refreshCart]
+  );
 
   const clearCart = useCallback(() => {
     setItems([]);
+    setSelectedIds([]);
+    didInitSelectionRef.current = false;
   }, []);
+
+  const toggleSelected = useCallback((id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  }, []);
+
+  const selectAll = useCallback(() => {
+    setSelectedIds(items.map((i) => i.id));
+  }, [items]);
+
+  const clearSelected = useCallback(() => {
+    setSelectedIds([]);
+  }, []);
+
+  const removeItems = useCallback(
+    async (ids: string[]) => {
+      if (ids.length === 0) return;
+
+      await Promise.all(
+        ids.map((id) =>
+          apiFetch<CartResponse>(`/api/cart/${id}`, {
+            method: "DELETE",
+          })
+        )
+      );
+      await refreshCart();
+    },
+    [refreshCart]
+  );
 
   const value = useMemo(
     () => ({
       items,
       totalCount,
       subtotal,
+      selectedIds,
+      selectedItems,
+      selectedCount,
+      selectedSubtotal,
       isLoading,
       addItem,
       removeItem,
       updateQuantity,
       clearCart,
+      toggleSelected,
+      selectAll,
+      clearSelected,
+      removeItems,
     }),
-    [addItem, clearCart, isLoading, items, removeItem, subtotal, totalCount, updateQuantity]
+    [
+      addItem,
+      clearCart,
+      clearSelected,
+      isLoading,
+      items,
+      removeItem,
+      removeItems,
+      selectAll,
+      selectedCount,
+      selectedIds,
+      selectedItems,
+      selectedSubtotal,
+      subtotal,
+      toggleSelected,
+      totalCount,
+      updateQuantity,
+    ]
   );
 
   return (

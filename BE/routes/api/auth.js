@@ -6,10 +6,13 @@ const { authenticateToken } = require("../../middleware/auth");
 
 const router = express.Router();
 
+const normalizeUsername = (value) => String(value).trim().toLowerCase();
+
 const createAccessToken = (user) =>
   jwt.sign(
     {
       sub: user.id,
+      username: user.username,
       email: user.email,
       name: user.name,
     },
@@ -38,7 +41,7 @@ const clearAuthCookie = (res) => {
 
 router.post("/signup", async (req, res) => {
   try {
-    const { email, password, name, phone } = req.body;
+    const { username, email, password, name, phone } = req.body;
 
     if (!process.env.JWT_SECRET) {
       return res.status(500).json({
@@ -47,29 +50,51 @@ router.post("/signup", async (req, res) => {
       });
     }
 
-    if (!email || !password || !name) {
+    if (!username || !email || !password || !name) {
       return res.status(400).json({
         success: false,
-        message: "email, password, name are required",
+        message: "username, email, password, name are required",
       });
     }
 
+    const normalizedUsername = normalizeUsername(username);
     const normalizedEmail = String(email).trim().toLowerCase();
     const trimmedName = String(name).trim();
     const normalizedPhone = phone ? String(phone).trim() : null;
+
+    if (!/^[a-z0-9]{4,16}$/.test(normalizedUsername)) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "아이디는 영문 소문자와 숫자만 사용 가능하며 4~16자여야 합니다.",
+      });
+    }
+
+    const existingByUsername = await mysql.query(
+      "userFindByUsername",
+      normalizedUsername
+    );
+
+    if (existingByUsername.length > 0) {
+      return res.status(409).json({
+        success: false,
+        message: "이미 사용 중인 아이디입니다.",
+      });
+    }
 
     const existingUsers = await mysql.query("userFindByEmail", normalizedEmail);
 
     if (existingUsers.length > 0) {
       return res.status(409).json({
         success: false,
-        message: "Email already exists",
+        message: "이미 사용 중인 이메일입니다.",
       });
     }
 
     const passwordHash = await bcrypt.hash(String(password), 10);
 
     const insertResult = await mysql.query("userCreate", {
+      username: normalizedUsername,
       email: normalizedEmail,
       password_hash: passwordHash,
       name: trimmedName,
@@ -98,7 +123,7 @@ router.post("/signup", async (req, res) => {
 
 router.post("/login", async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { username, password } = req.body;
 
     if (!process.env.JWT_SECRET) {
       return res.status(500).json({
@@ -107,20 +132,20 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    if (!email || !password) {
+    if (!username || !password) {
       return res.status(400).json({
         success: false,
-        message: "email and password are required",
+        message: "아이디와 비밀번호를 입력해주세요.",
       });
     }
 
-    const normalizedEmail = String(email).trim().toLowerCase();
-    const [user] = await mysql.query("userFindByEmail", normalizedEmail);
+    const normalizedUsername = normalizeUsername(username);
+    const [user] = await mysql.query("userFindByUsername", normalizedUsername);
 
     if (!user) {
       return res.status(401).json({
         success: false,
-        message: "Invalid email or password",
+        message: "아이디 또는 비밀번호가 올바르지 않습니다.",
       });
     }
 
@@ -132,7 +157,7 @@ router.post("/login", async (req, res) => {
     if (!isPasswordValid) {
       return res.status(401).json({
         success: false,
-        message: "Invalid email or password",
+        message: "아이디 또는 비밀번호가 올바르지 않습니다.",
       });
     }
 

@@ -17,7 +17,12 @@ const paymentMethods: { id: PayMethod; label: string }[] = [
 ];
 
 const Checkout = () => {
-  const { items, subtotal, clearCart } = useCart();
+  const {
+    selectedItems,
+    selectedIds,
+    selectedSubtotal,
+    removeItems,
+  } = useCart();
   const navigate = useNavigate();
 
   const [form, setForm] = useState({
@@ -34,8 +39,13 @@ const Checkout = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [orderOpen, setOrderOpen] = useState(true);
 
-  const shipping = subtotal >= 30000 ? 0 : subtotal === 0 ? 0 : 3000;
-  const total = subtotal + shipping;
+  const shipping =
+    selectedSubtotal >= 30000
+      ? 0
+      : selectedSubtotal === 0
+        ? 0
+        : 3000;
+  const total = selectedSubtotal + shipping;
 
   const set = (field: string, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -53,20 +63,24 @@ const Checkout = () => {
     return Object.keys(errs).length === 0;
   };
 
-  const handleOrder = (e: React.FormEvent) => {
+  const handleOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (items.length === 0) return;
+    if (selectedItems.length === 0) return;
     if (!validate()) return;
-    clearCart();
-    navigate("/order-complete");
+    try {
+      await removeItems(selectedIds);
+      navigate("/order-complete");
+    } catch {
+      // 주문 생성/장바구니 삭제가 실패한 경우에는 페이지 이동을 하지 않습니다.
+    }
   };
 
-  if (items.length === 0) {
+  if (selectedItems.length === 0) {
     return (
       <div className="min-h-screen bg-background">
         <TopBanner />
         <div className="pt-32 pb-20 flex flex-col items-center gap-4">
-          <p className="nav-link text-foreground/60">장바구니가 비어 있습니다.</p>
+          <p className="nav-link text-foreground/60">선택한 상품이 없습니다.</p>
           <Link to="/shop" className="header-link text-foreground/60 underline hover:text-foreground">
             쇼핑 계속하기
           </Link>
@@ -293,7 +307,7 @@ const Checkout = () => {
               </section>
             </div>
 
-            {/* Right: Order Summary */}
+  {/* Right: Order Summary */}
             <div className="space-y-0">
               <div className="sticky top-24">
                 <button
@@ -315,7 +329,7 @@ const Checkout = () => {
 
                 {/* Order Items */}
                 <div className={`overflow-hidden transition-all duration-300 ${orderOpen ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0"}`}>
-                  {items.map((item) => (
+                  {selectedItems.map((item) => (
                     <div key={item.id} className="flex gap-3 py-4 border-b border-border">
                       <img src={item.image} alt={item.name} className="w-14 h-20 object-cover shrink-0" />
                       <div className="flex-1 min-w-0">
@@ -332,7 +346,7 @@ const Checkout = () => {
                 <div className="mt-4 space-y-3 border-b border-border pb-4">
                   <div className="flex justify-between nav-link text-foreground/60">
                     <span>상품금액</span>
-                    <span className="tabular-nums">₩{formatPrice(subtotal)}</span>
+                    <span className="tabular-nums">₩{formatPrice(selectedSubtotal)}</span>
                   </div>
                   <div className="flex justify-between nav-link text-foreground/60">
                     <span>배송비</span>

@@ -11,6 +11,7 @@ import { apiFetch } from "@/lib/api";
 
 export interface AuthUser {
   id: number;
+  username: string;
   email: string;
   name: string;
   phone: string | null;
@@ -49,7 +50,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const response = await apiFetch<MeResponse>("/api/auth/me");
       setUser(response.user);
     } catch {
-      setUser(null);
+      // 로그인 직후 /me 요청이 실패하더라도, 사용자가 이미 설정한 user를 덮어쓰지 않도록 방지합니다.
+      setUser((prev) => prev);
     } finally {
       setIsLoading(false);
     }

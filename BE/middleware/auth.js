@@ -36,6 +36,7 @@ const authenticateToken = (req, res, next) => {
 
     req.user = {
       id: decoded.sub,
+      username: decoded.username,
       email: decoded.email,
       name: decoded.name,
     };

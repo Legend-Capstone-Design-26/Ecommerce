@@ -6,7 +6,8 @@ module.exports = {
       NOW() AS server_time
   `,
   userFindByEmail: `select * from users where email = ?`,
-  userFindById: `select id, email, name, phone, created_at, updated_at from users where id = ?`,
+  userFindByUsername: `select * from users where username = ?`,
+  userFindById: `select id, username, email, name, phone, created_at, updated_at from users where id = ?`,
   userCreate: `insert into users set ?`,
   productList: `
     select
