@@ -4,6 +4,7 @@ import { ChevronDown } from "lucide-react";
 import TopBanner from "@/components/TopBanner";
 import Footer from "@/components/Footer";
 import { useCart } from "@/context/CartContext";
+import { apiFetch } from "@/lib/api";
 
 const formatPrice = (price: number) => price.toLocaleString("ko-KR");
 
@@ -21,7 +22,7 @@ const Checkout = () => {
     selectedItems,
     selectedIds,
     selectedSubtotal,
-    removeItems,
+    refreshCart,
   } = useCart();
   const navigate = useNavigate();
 
@@ -68,7 +69,15 @@ const Checkout = () => {
     if (selectedItems.length === 0) return;
     if (!validate()) return;
     try {
-      await removeItems(selectedIds);
+      await apiFetch("/api/orders", {
+        method: "POST",
+        body: JSON.stringify({
+          cartItemIds: selectedIds,
+          delivery: form,
+          payMethod,
+        }),
+      });
+      await refreshCart();
       navigate("/order-complete");
     } catch {
       // 주문 생성/장바구니 삭제가 실패한 경우에는 페이지 이동을 하지 않습니다.

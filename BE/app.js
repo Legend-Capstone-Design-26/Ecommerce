@@ -10,6 +10,7 @@ var dbRouter = require("./routes/api/db");
 var authRouter = require("./routes/api/auth");
 var productsRouter = require("./routes/api/products");
 var cartRouter = require("./routes/api/cart");
+var ordersRouter = require("./routes/api/orders");
 
 var app = express();
 
@@ -29,6 +30,7 @@ app.use("/api/db", dbRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/products", productsRouter);
 app.use("/api/cart", cartRouter);
+app.use("/api/orders", ordersRouter);
 
 // catch 404 and forward to error handler
 app.use(function (req, res, next) {

@@ -54,6 +54,7 @@ interface CartContextValue {
   selectAll: () => void;
   clearSelected: () => void;
   removeItems: (ids: string[]) => Promise<void>;
+  refreshCart: () => Promise<void>;
 }
 
 const CartContext = createContext<CartContextValue | null>(null);
@@ -208,6 +209,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       selectAll,
       clearSelected,
       removeItems,
+      refreshCart,
     }),
     [
       addItem,
@@ -217,6 +219,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       items,
       removeItem,
       removeItems,
+      refreshCart,
       selectAll,
       selectedCount,
       selectedIds,
