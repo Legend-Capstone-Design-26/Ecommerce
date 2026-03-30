@@ -59,6 +59,7 @@ const Checkout = () => {
     if (!form.phone.trim()) errs.phone = "연락처를 입력해주세요.";
     if (!form.email.trim()) errs.email = "이메일을 입력해주세요.";
     if (!form.address.trim()) errs.address = "주소를 입력해주세요.";
+    if (!form.postcode.trim()) errs.postcode = "우편번호를 입력해주세요.";
     if (!agree) errs.agree = "구매조건에 동의해주세요.";
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -157,15 +158,14 @@ const Checkout = () => {
                       className={inputCls(errors.email)}
                     />
                   </Field>
-                  <Field label="주소" error={errors.address}>
+                  <Field label="주소" error={errors.address || errors.postcode}>
                     <div className="flex gap-2 mb-2">
                       <input
                         type="text"
                         value={form.postcode}
                         onChange={(e) => set("postcode", e.target.value)}
                         placeholder="우편번호"
-                        className={`${inputCls()} flex-1`}
-                        readOnly
+                        className={`${inputCls(errors.postcode)} flex-1`}
                       />
                       <button
                         type="button"
@@ -291,15 +291,18 @@ const Checkout = () => {
                 >
                   구매 조건 동의
                 </h3>
-                <label className="flex items-start gap-3 cursor-pointer group">
+                <label
+                  className="flex items-start gap-3 cursor-pointer group"
+                  onClick={(e) => {
+                    if ((e.target as HTMLElement).closest("a")) return;
+                    setAgree((v) => !v);
+                    if (errors.agree) setErrors((prev) => ({ ...prev, agree: "" }));
+                  }}
+                >
                   <div
                     className={`mt-0.5 w-4 h-4 border flex-shrink-0 flex items-center justify-center transition-all duration-200 ${
                       agree ? "border-foreground bg-foreground" : "border-border group-hover:border-foreground/60"
                     }`}
-                    onClick={() => {
-                      setAgree(!agree);
-                      if (errors.agree) setErrors((prev) => ({ ...prev, agree: "" }));
-                    }}
                   >
                     {agree && (
                       <svg width="10" height="7" viewBox="0 0 10 7" fill="none">
@@ -309,7 +312,16 @@ const Checkout = () => {
                   </div>
                   <span className="nav-link text-foreground/70 leading-relaxed">
                     개인정보 수집 및 이용, 구매조건 확인 및 결제진행에 동의합니다.{" "}
-                    <a href="#" className="underline hover:text-foreground">약관보기</a>
+                    <a
+                      href="#"
+                      className="underline hover:text-foreground"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                    >
+                      약관보기
+                    </a>
                   </span>
                 </label>
                 {errors.agree && <p className="nav-link text-red-500 text-xs">{errors.agree}</p>}

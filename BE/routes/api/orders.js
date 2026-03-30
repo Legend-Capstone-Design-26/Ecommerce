@@ -26,19 +26,11 @@ const queryConnection = (connection, sql, values = []) =>
     });
   });
 
-const getColumnSet = async (connection, tableName) => {
-  const rows = await queryConnection(connection, `SHOW COLUMNS FROM ${tableName}`);
-  return new Set(rows.map((row) => row.Field));
-};
-
-const pickColumns = (columnSet, payload) => {
-  const out = {};
-  Object.entries(payload).forEach(([key, value]) => {
-    if (columnSet.has(key) && value !== undefined) {
-      out[key] = value;
-    }
-  });
-  return out;
+const salePriceForRow = (row) => {
+  const original = Number(row.original_price);
+  const disc = Number(row.discount_percent);
+  const add = Number(row.additional_price || 0);
+  return original * (1 - disc / 100) + add;
 };
 
 router.post("/", authenticateToken, async (req, res) => {
@@ -62,22 +54,47 @@ router.post("/", authenticateToken, async (req, res) => {
     });
   }
 
-  const connection = await new Promise((resolve, reject) => {
-    mysql.pool.getConnection((error, conn) => {
-      if (error) {
-        reject(error);
-        return;
-      }
-      resolve(conn);
-    });
-  });
+  const d = delivery || {};
+  const receiverName = String(d.name || "").trim();
+  const receiverPhone = String(d.phone || "").trim();
+  const addr1 = String(d.address || "").trim();
+  const zip = String(d.postcode || "").trim();
 
+  if (!receiverName || !receiverPhone || !addr1 || !zip) {
+    return res.status(400).json({
+      success: false,
+      message:
+        "배송 정보가 필요합니다: 이름, 연락처, 주소, 우편번호를 모두 입력해주세요.",
+    });
+  }
+
+  let connection;
+  try {
+    connection = await new Promise((resolve, reject) => {
+      mysql.pool.getConnection((error, conn) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        resolve(conn);
+      });
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to create order",
+      error: error.message,
+    });
+  }
+
+  const idPlaceholders = normalizedIds.map(() => "?").join(", ");
+
+  let inTx = false;
   try {
     await queryConnection(connection, "START TRANSACTION");
+    inTx = true;
 
-    const cartRows = await queryConnection(
-      connection,
-      `
+    const cartSql = `
       select
         ci.id,
         ci.user_id,
@@ -87,119 +104,97 @@ router.post("/", authenticateToken, async (req, res) => {
         p.name as product_name,
         p.original_price,
         p.discount_percent,
+        p.thumbnail_image as product_image,
         pv.color_name,
         pv.size_label,
         pv.additional_price
       from cart_items ci
       join products p on p.id = ci.product_id
       join product_variants pv on pv.id = ci.product_variant_id
-      where ci.user_id = ? and ci.id in (?)
-    `,
-      [req.user.id, normalizedIds]
-    );
+      where ci.user_id = ? and ci.id in (${idPlaceholders})
+    `;
+
+    const cartRows = await queryConnection(connection, cartSql, [
+      req.user.id,
+      ...normalizedIds,
+    ]);
 
     if (cartRows.length !== normalizedIds.length) {
       throw new Error("Some cart items were not found");
     }
 
     const subtotal = cartRows.reduce((sum, row) => {
-      const memberPrice =
-        Math.round(
-          Number(row.original_price) * (1 - Number(row.discount_percent) / 100) +
-            Number(row.additional_price || 0)
-        ) || 0;
-      return sum + memberPrice * Number(row.quantity);
+      const unit = salePriceForRow(row);
+      return sum + unit * Number(row.quantity);
     }, 0);
 
-    const shippingFee = subtotal >= 30000 ? 0 : subtotal === 0 ? 0 : 3000;
+    const shippingFee =
+      subtotal >= 30000 ? 0 : subtotal === 0 ? 0 : 3000;
     const totalAmount = subtotal + shippingFee;
     const orderNumber = formatOrderNumber();
 
-    const orderColumns = await getColumnSet(connection, "orders");
-    const orderPayload = pickColumns(orderColumns, {
-      order_number: orderNumber,
-      user_id: req.user.id,
-      subtotal_amount: subtotal,
-      shipping_fee: shippingFee,
-      total_amount: totalAmount,
-      status: "pending",
-      order_status: "pending",
-      payment_status: "pending",
-      recipient_name: delivery?.name || "",
-      recipient_phone: delivery?.phone || "",
-      recipient_email: delivery?.email || "",
-      shipping_postcode: delivery?.postcode || "",
-      shipping_address: delivery?.address || "",
-      shipping_address1: delivery?.address || "",
-      shipping_address2: delivery?.addressDetail || "",
-      shipping_memo: delivery?.memo || "",
-    });
-
-    if (Object.keys(orderPayload).length === 0) {
-      throw new Error("orders table columns are not compatible");
-    }
-
     const orderInsertResult = await queryConnection(
       connection,
-      "insert into orders set ?",
-      [orderPayload]
+      `insert into orders set ?`,
+      [
+        {
+          user_id: req.user.id,
+          order_number: orderNumber,
+          status: "PENDING",
+          total_amount: totalAmount,
+          shipping_fee: shippingFee,
+          receiver_name: receiverName,
+          receiver_phone: receiverPhone,
+          shipping_address1: addr1,
+          shipping_address2: String(d.addressDetail || "").trim() || null,
+          shipping_zipcode: zip,
+          request_message: String(d.memo || "").trim() || null,
+        },
+      ]
     );
 
     const orderId = orderInsertResult.insertId;
 
-    const orderItemColumns = await getColumnSet(connection, "order_items");
     for (const row of cartRows) {
-      const memberPrice =
-        Math.round(
-          Number(row.original_price) * (1 - Number(row.discount_percent) / 100) +
-            Number(row.additional_price || 0)
-        ) || 0;
+      const sale = salePriceForRow(row);
+      const qty = Number(row.quantity);
+      const lineTotal = sale * qty;
 
-      const orderItemPayload = pickColumns(orderItemColumns, {
+      await queryConnection(connection, `insert into order_items set ?`, [
+        {
+          order_id: orderId,
+          product_id: row.product_id,
+          product_variant_id: row.product_variant_id,
+          product_name: row.product_name,
+          color_name: row.color_name,
+          size_label: row.size_label,
+          product_image: row.product_image || null,
+          original_price: Number(row.original_price),
+          discount_percent: Number(row.discount_percent) || 0,
+          sale_price: sale,
+          quantity: qty,
+          line_total: lineTotal,
+        },
+      ]);
+    }
+
+    await queryConnection(connection, `insert into payments set ?`, [
+      {
         order_id: orderId,
-        product_id: row.product_id,
-        product_variant_id: row.product_variant_id,
-        quantity: row.quantity,
-        unit_price: memberPrice,
-        total_price: memberPrice * Number(row.quantity),
-        product_name: row.product_name,
-        color_name: row.color_name,
-        size_label: row.size_label,
-      });
+        payment_method: payMethod || "card",
+        amount: totalAmount,
+        status: "READY",
+      },
+    ]);
 
-      if (Object.keys(orderItemPayload).length === 0) {
-        throw new Error("order_items table columns are not compatible");
-      }
-
-      await queryConnection(connection, "insert into order_items set ?", [
-        orderItemPayload,
-      ]);
-    }
-
-    const paymentColumns = await getColumnSet(connection, "payments");
-    const paymentPayload = pickColumns(paymentColumns, {
-      order_id: orderId,
-      amount: totalAmount,
-      status: "pending",
-      payment_status: "pending",
-      payment_method: payMethod || "card",
-      method: payMethod || "card",
-      pg_transaction_id: null,
-      provider_transaction_id: null,
-    });
-
-    if (Object.keys(paymentPayload).length > 0) {
-      await queryConnection(connection, "insert into payments set ?", [
-        paymentPayload,
-      ]);
-    }
-
-    await queryConnection(connection, "delete from cart_items where user_id = ? and id in (?)", [
+    const deleteSql = `delete from cart_items where user_id = ? and id in (${idPlaceholders})`;
+    await queryConnection(connection, deleteSql, [
       req.user.id,
-      normalizedIds,
+      ...normalizedIds,
     ]);
 
     await queryConnection(connection, "COMMIT");
+    inTx = false;
 
     return res.status(201).json({
       success: true,
@@ -209,7 +204,13 @@ router.post("/", authenticateToken, async (req, res) => {
       totalAmount,
     });
   } catch (error) {
-    await queryConnection(connection, "ROLLBACK");
+    if (inTx) {
+      try {
+        await queryConnection(connection, "ROLLBACK");
+      } catch (_) {
+        /* ignore */
+      }
+    }
     return res.status(500).json({
       success: false,
       message: "Failed to create order",
