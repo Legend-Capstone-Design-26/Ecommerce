@@ -1,9 +1,36 @@
-import { Link } from "react-router-dom";
+import { useEffect, useRef } from "react";
+import { Link, useLocation, Navigate } from "react-router-dom";
 import TopBanner from "@/components/TopBanner";
 import Footer from "@/components/Footer";
+import { trackUxSdkEvent } from "@/lib/ux-sdk";
+
+interface OrderCompleteState {
+  orderId: number;
+  orderNumber: string;
+  totalAmount: number;
+}
 
 const OrderComplete = () => {
-  const orderNumber = `TIF-${Date.now().toString().slice(-8)}`;
+  const location = useLocation();
+  const hasTrackedCompletion = useRef(false);
+  const state = location.state as OrderCompleteState | null;
+
+  if (!state?.orderId || !state.orderNumber) {
+    return <Navigate to="/checkout" replace />;
+  }
+
+  useEffect(() => {
+    if (hasTrackedCompletion.current) {
+      return;
+    }
+
+    hasTrackedCompletion.current = true;
+    void trackUxSdkEvent("checkout_complete", {
+      orderId: state.orderId,
+      orderNumber: state.orderNumber,
+      totalAmount: state.totalAmount,
+    });
+  }, [state.orderId, state.orderNumber, state.totalAmount]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -51,7 +78,7 @@ const OrderComplete = () => {
             className="text-xl text-foreground tracking-widest"
             style={{ fontFamily: "'Cormorant Garamond', serif" }}
           >
-            {orderNumber}
+            {state.orderNumber}
           </p>
         </div>
 
@@ -84,12 +111,14 @@ const OrderComplete = () => {
         <div className="flex flex-col sm:flex-row gap-3 w-full max-w-sm">
           <Link
             to="/mypage/orders"
+            data-track-id="view_orders_btn"
             className="flex-1 text-center py-4 bg-foreground text-background header-link tracking-[0.12em] uppercase hover:opacity-80 transition-opacity duration-200"
           >
             주문 내역 확인
           </Link>
           <Link
             to="/shop"
+            data-track-id="continue_shopping_btn"
             className="flex-1 text-center py-4 border border-border nav-link text-foreground/60 hover:border-foreground hover:text-foreground transition-all duration-200"
           >
             쇼핑 계속하기

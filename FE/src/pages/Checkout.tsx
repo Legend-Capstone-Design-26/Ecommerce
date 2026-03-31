@@ -10,6 +10,14 @@ const formatPrice = (price: number) => price.toLocaleString("ko-KR");
 
 type PayMethod = "card" | "bank" | "kakao" | "naver";
 
+interface CreateOrderResponse {
+  success: boolean;
+  message: string;
+  orderId: number;
+  orderNumber: string;
+  totalAmount: number;
+}
+
 const paymentMethods: { id: PayMethod; label: string }[] = [
   { id: "card", label: "신용카드" },
   { id: "bank", label: "무통장 입금" },
@@ -70,7 +78,7 @@ const Checkout = () => {
     if (selectedItems.length === 0) return;
     if (!validate()) return;
     try {
-      await apiFetch("/api/orders", {
+      const order = await apiFetch<CreateOrderResponse>("/api/orders", {
         method: "POST",
         body: JSON.stringify({
           cartItemIds: selectedIds,
@@ -79,7 +87,13 @@ const Checkout = () => {
         }),
       });
       await refreshCart();
-      navigate("/order-complete");
+      navigate("/order-complete", {
+        state: {
+          orderId: order.orderId,
+          orderNumber: order.orderNumber,
+          totalAmount: order.totalAmount,
+        },
+      });
     } catch {
       // 주문 생성/장바구니 삭제가 실패한 경우에는 페이지 이동을 하지 않습니다.
     }
@@ -169,6 +183,7 @@ const Checkout = () => {
                       />
                       <button
                         type="button"
+                        data-track-id="address_search_btn"
                         className="px-4 py-3 border border-border header-link text-foreground/60 hover:bg-muted transition-colors duration-200 whitespace-nowrap"
                       >
                         주소 검색
@@ -219,6 +234,7 @@ const Checkout = () => {
                       key={m.id}
                       type="button"
                       onClick={() => setPayMethod(m.id)}
+                      data-track-id={`pay_method_${m.id}`}
                       className={`py-3 px-4 nav-link border transition-all duration-200 ${
                         payMethod === m.id
                           ? "border-foreground bg-foreground text-background"
@@ -386,10 +402,11 @@ const Checkout = () => {
                   </span>
                 </div>
 
-                <button
-                  type="submit"
-                  className="w-full mt-6 py-4 bg-foreground text-background header-link tracking-[0.12em] uppercase hover:opacity-80 transition-opacity duration-200 active:scale-[0.99] transform"
-                >
+                 <button
+                   type="submit"
+                   data-track-id="pay_btn"
+                   className="w-full mt-6 py-4 bg-foreground text-background header-link tracking-[0.12em] uppercase hover:opacity-80 transition-opacity duration-200 active:scale-[0.99] transform"
+                 >
                   ₩{formatPrice(total)} 결제하기
                 </button>
               </div>
