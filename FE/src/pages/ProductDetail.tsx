@@ -389,10 +389,11 @@ const ProductDetail = () => {
                     </p>
                   </div>
 
-                  <button
-                    onClick={() => setStockOpen(!stockOpen)}
-                    className="w-full py-3 border border-border nav-link text-foreground/60 hover:border-foreground/50 transition-colors duration-150 flex items-center justify-center gap-1.5 mb-3"
-                  >
+                    <button
+                      onClick={() => setStockOpen(!stockOpen)}
+                      data-track-id="stock_check_toggle"
+                      className="w-full py-3 border border-border nav-link text-foreground/60 hover:border-foreground/50 transition-colors duration-150 flex items-center justify-center gap-1.5 mb-3"
+                    >
                     실시간 재고 조회
                     <svg
                       width="10"
@@ -443,6 +444,7 @@ const ProductDetail = () => {
                   <div className="flex gap-2 mb-4">
                     <button
                       onClick={() => setWishlist(!wishlist)}
+                      data-track-id="wishlist_btn"
                       className="w-12 h-12 border border-border flex items-center justify-center hover:border-foreground/50 transition-colors duration-150 shrink-0"
                       aria-label="위시리스트"
                     >
@@ -455,6 +457,7 @@ const ProductDetail = () => {
                     </button>
                     <button
                       onClick={() => void handleAddToCart()}
+                      data-track-id="add_to_cart_btn"
                       className="w-12 h-12 border border-border flex items-center justify-center hover:border-foreground/50 transition-colors duration-150 shrink-0"
                       aria-label="장바구니"
                     >
@@ -462,6 +465,7 @@ const ProductDetail = () => {
                     </button>
                     <button
                       onClick={() => void handleBuyNow()}
+                      data-track-id="buy_btn"
                       className="flex-1 h-12 bg-[#3d2f1e] text-white nav-link tracking-[0.08em] hover:opacity-90 transition-opacity duration-150 active:scale-[0.99] transform"
                     >
                       구매하기

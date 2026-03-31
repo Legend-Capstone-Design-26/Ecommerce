@@ -21,7 +21,7 @@ const Index = () => {
 
       {/* Collection Banner */}
       <section className="w-full">
-        <Link to="/collection" className="block relative group overflow-hidden">
+        <Link to="/collection" data-track-id="cta_go_collection" className="block relative group overflow-hidden">
           <img
             src={collectionBanner}
             alt="Spring Summer Collection"
