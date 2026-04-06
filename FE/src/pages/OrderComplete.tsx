@@ -1,9 +1,22 @@
-import { Link } from "react-router-dom";
+import { useEffect, useMemo } from "react";
+import { Link, useLocation } from "react-router-dom";
 import TopBanner from "@/components/TopBanner";
 import Footer from "@/components/Footer";
 
 const OrderComplete = () => {
-  const orderNumber = `TIF-${Date.now().toString().slice(-8)}`;
+  const { state } = useLocation();
+  const orderState = (state ?? {}) as { amount?: number; orderId?: string };
+  const orderNumber = useMemo(
+    () => orderState.orderId || `TIF-${Date.now().toString().slice(-8)}`,
+    [orderState.orderId]
+  );
+
+  useEffect(() => {
+    window.__sdk?.track?.("checkout_complete", {
+      order_id: orderNumber,
+      amount: orderState.amount ?? null,
+    });
+  }, [orderNumber, orderState.amount]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -85,6 +98,7 @@ const OrderComplete = () => {
           <Link
             to="/mypage/orders"
             className="flex-1 text-center py-4 bg-foreground text-background header-link tracking-[0.12em] uppercase hover:opacity-80 transition-opacity duration-200"
+            data-track-id="order_complete_view_orders"
           >
             주문 내역 확인
           </Link>

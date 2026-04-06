@@ -32,7 +32,11 @@ const ProductCard = ({
   const memberPrice = Math.round(originalPrice * (1 - discountPercent / 100));
 
   return (
-    <Link to={`/product/${id}`} className="group block">
+    <Link
+      to={`/product/${id}`}
+      className="group block"
+      data-track-id="collection_product_click"
+    >
       <div className="relative overflow-hidden mb-3">
         <img
           src={image}

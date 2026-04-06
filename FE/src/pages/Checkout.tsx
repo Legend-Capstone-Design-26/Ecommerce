@@ -70,7 +70,7 @@ const Checkout = () => {
     if (selectedItems.length === 0) return;
     if (!validate()) return;
     try {
-      await apiFetch("/api/orders", {
+      const response = await apiFetch<Record<string, unknown>>("/api/orders", {
         method: "POST",
         body: JSON.stringify({
           cartItemIds: selectedIds,
@@ -79,7 +79,18 @@ const Checkout = () => {
         }),
       });
       await refreshCart();
-      navigate("/order-complete");
+      navigate("/order-complete", {
+        state: {
+          amount: total,
+          orderId:
+            String(
+              response.orderId ??
+                response.orderNumber ??
+                response.id ??
+                ""
+            ) || undefined,
+        },
+      });
     } catch {
       // 주문 생성/장바구니 삭제가 실패한 경우에는 페이지 이동을 하지 않습니다.
     }
@@ -389,6 +400,7 @@ const Checkout = () => {
                 <button
                   type="submit"
                   className="w-full mt-6 py-4 bg-foreground text-background header-link tracking-[0.12em] uppercase hover:opacity-80 transition-opacity duration-200 active:scale-[0.99] transform"
+                  data-track-id="checkout_pay_btn"
                 >
                   ₩{formatPrice(total)} 결제하기
                 </button>

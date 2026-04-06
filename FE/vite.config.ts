@@ -16,6 +16,11 @@ export default defineConfig(({ mode }) => ({
         target: "http://localhost:3000",
         changeOrigin: true,
       },
+      "/uxsdk": {
+        target: "http://localhost:3001",
+        changeOrigin: true,
+        rewrite: (requestPath) => requestPath.replace(/^\/uxsdk/, ""),
+      },
     },
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),

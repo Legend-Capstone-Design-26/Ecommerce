@@ -457,12 +457,14 @@ const ProductDetail = () => {
                       onClick={() => void handleAddToCart()}
                       className="w-12 h-12 border border-border flex items-center justify-center hover:border-foreground/50 transition-colors duration-150 shrink-0"
                       aria-label="장바구니"
+                      data-track-id="product_add_to_cart"
                     >
                       <ShoppingBag size={16} strokeWidth={1.5} className="text-foreground/60" />
                     </button>
                     <button
                       onClick={() => void handleBuyNow()}
                       className="flex-1 h-12 bg-[#3d2f1e] text-white nav-link tracking-[0.08em] hover:opacity-90 transition-opacity duration-150 active:scale-[0.99] transform"
+                      data-track-id="product_buy_now"
                     >
                       구매하기
                     </button>
@@ -548,7 +550,12 @@ const RelatedProducts = ({ products }: { products: Product[] }) => {
           );
 
           return (
-            <Link key={product.id} to={`/product/${product.id}`} className="group block">
+            <Link
+              key={product.id}
+              to={`/product/${product.id}`}
+              className="group block"
+              data-track-id="collection_product_click"
+            >
               <div className="overflow-hidden mb-3">
                 <img
                   src={product.image}

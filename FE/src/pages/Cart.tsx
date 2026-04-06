@@ -209,6 +209,7 @@ const Cart = () => {
                   onClick={() => navigate("/checkout")}
                   disabled={selectedIds.length === 0}
                   className="w-full mt-4 py-4 bg-foreground text-background header-link tracking-[0.12em] uppercase hover:opacity-80 transition-opacity duration-200 active:scale-[0.99] transform disabled:opacity-50 disabled:pointer-events-none"
+                  data-track-id="cart_checkout"
                 >
                   주문하기
                 </button>
